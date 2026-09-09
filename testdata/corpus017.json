@@ -1,0 +1,1 @@
+{"basic":"line one\nline two\n","withcomment":"line one\n# nothing\nline two\n","trimmed1":"hello world","trimmed2":"hello world","trimmed3":"   hello world\n","str1":"The quick brown fox jumps over the lazy dog.","str2":"The quick brown fox jumps over the lazy dog.","str3":"The quick brown fox jumps over the lazy dog.","literal":"raw \\n no escape\n"}
