@@ -17,6 +17,11 @@ convert between any two of those formats, with JSON in the middle.
 
 Go 1.27 or later, for `encoding/json/jsontext`.
 
+The package itself uses only the standard library. `go.mod` requires
+[tojson](https://github.com/client9/tojson), but only the tests import it, to
+read the YAML back and confirm the document survived the trip. It is never
+compiled into anything that imports `toyaml`.
+
 ## Quick Start
 
 ```bash
