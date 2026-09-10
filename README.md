@@ -4,7 +4,7 @@ Directly converts JSON documents to YAML. Standard library only.
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/client9/toyaml.svg)](https://pkg.go.dev/github.com/client9/toyaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
+[![Build Status](https://github.com/client9/toyaml/actions/workflows/go.yml/badge.svg)](https://github.com/client9/toyaml/actions)
 `toyaml` takes JSON bytes and writes block-style YAML bytes. There is no
 reflection and no intermediate data structure: tokens come from
 `encoding/json/jsontext` and YAML goes straight into a byte slice.
