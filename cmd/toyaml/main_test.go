@@ -31,6 +31,72 @@ func TestMultilineStyle(t *testing.T) {
 	}
 }
 
+func TestInputFormat(t *testing.T) {
+	cases := []struct {
+		flag    string
+		args    []string
+		want    string
+		wantErr bool
+	}{
+		{"", nil, "json", false},
+		{"", []string{"a.json"}, "json", false},
+		{"", []string{"a.yaml"}, "yaml", false},
+		{"", []string{"a.YML"}, "yaml", false},
+		{"", []string{"a.txt"}, "json", false},
+		{"", []string{"noext"}, "json", false},
+		{"yaml", nil, "yaml", false},
+		{"YAML", nil, "yaml", false},
+		{"yml", []string{"a.json"}, "yaml", false},
+		{"json", []string{"a.yaml"}, "json", false},
+		{"toml", nil, "", true},
+	}
+	for _, tc := range cases {
+		got, err := inputFormat(tc.flag, tc.args)
+		if (err != nil) != tc.wantErr {
+			t.Errorf("inputFormat(%q, %q) error = %v, wantErr %v", tc.flag, tc.args, err, tc.wantErr)
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("inputFormat(%q, %q) = %q, want %q", tc.flag, tc.args, got, tc.want)
+		}
+	}
+}
+
+func TestConvertYAML(t *testing.T) {
+	input, err := readInput([]string{"testdata/sample.yaml"})
+	if err != nil {
+		t.Fatalf("readInput() error = %v", err)
+	}
+	got, err := convert("yaml", input, toyaml.Style{Indent: 4, SpaceMappings: true})
+	if err != nil {
+		t.Fatalf("convert() error = %v", err)
+	}
+	want := "name: app\nlist:\n    - 1\n    - two\n\nnested:\n    k: v\n"
+	if string(got) != want {
+		t.Errorf("convert() =\n%q\nwant\n%q", got, want)
+	}
+}
+
+func TestConvertJSON(t *testing.T) {
+	got, err := convert("json", []byte(`{"a":[1]}`), toyaml.Style{})
+	if err != nil {
+		t.Fatalf("convert() error = %v", err)
+	}
+	if want := "a:\n  - 1\n"; string(got) != want {
+		t.Errorf("convert() = %q, want %q", got, want)
+	}
+	// JSON stays strict: YAML input is not accepted in JSON mode
+	if _, err := convert("json", []byte("a: 1\n"), toyaml.Style{}); err == nil {
+		t.Error("convert(json, YAML input) error = nil, want error")
+	}
+}
+
+func TestConvertYAMLError(t *testing.T) {
+	if _, err := convert("yaml", []byte("a: [1\n"), toyaml.Style{}); err == nil {
+		t.Error("convert(yaml, unterminated flow) error = nil, want error")
+	}
+}
+
 func TestReadInputFile(t *testing.T) {
 	got, err := readInput([]string{"testdata/sample.json"})
 	if err != nil {
