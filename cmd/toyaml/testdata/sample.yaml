@@ -1,0 +1,5 @@
+# a comment, which does not survive reformatting
+name: app
+list: [1, "two"]
+nested:
+   k: v
