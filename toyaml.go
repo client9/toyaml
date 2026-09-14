@@ -58,6 +58,20 @@ type Style struct {
 	// SpaceSequences is SpaceMappings for the items of a sequence.
 	SpaceSequences bool
 
+	// SpaceMappingItems counts every non-empty mapping in a sequence as
+	// multi-line, including one that fits on the dash's line, so a list of
+	// mappings is spaced evenly however many entries each has:
+	//
+	//	- name: a
+	//	  role: admin
+	//
+	//	- name: b
+	//
+	//	- name: c
+	//
+	// It has no effect unless SpaceSequences is set.
+	SpaceMappingItems bool
+
 	// SpaceBefore also puts a blank line ahead of an entry that spans more
 	// than one line, so it is set off from the entry before it as well as the
 	// one after. It applies wherever SpaceMappings or SpaceSequences does.

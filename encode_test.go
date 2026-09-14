@@ -433,7 +433,7 @@ var styleMatrix = []Style{
 	{SpaceMappings: true, SpaceSequences: true},
 	{SpaceMappings: true, SpaceSequences: true, SpaceBefore: true},
 	{Indent: 4, CompactSequence: true, SpaceMappings: true, SpaceBefore: true, SpaceMaxLevel: 2},
-	{Multiline: Quoted, SpaceSequences: true, SpaceBefore: true},
+	{Multiline: Quoted, SpaceSequences: true, SpaceBefore: true, SpaceMappingItems: true},
 }
 
 // TestCorpus converts every JSON document in testdata to YAML under each
@@ -644,6 +644,7 @@ func TestStyleErrors(t *testing.T) {
 func TestStyleSpacing(t *testing.T) {
 	mapping := `{"a":1,"b":2,"list":["x","z"],"obj":{"k":{"m":1},"p":2},"c":3,"e":[],"f":4}`
 	seq := `[{"a":1,"b":2},"s",[1,2],"t"]`
+	people := `[{"name":"A","sex":"m"},{"key":"k1"},{"key":"k2"},{"name":"B","sex":"m"}]`
 	cases := []struct {
 		name  string
 		in    string
@@ -668,6 +669,18 @@ func TestStyleSpacing(t *testing.T) {
 			"- a: 1\n  b: 2\n\n- s\n\n-\n  - 1\n  - 2\n\n- t\n"},
 		{"mappings leave sequences", seq, Style{SpaceMappings: true},
 			"- a: 1\n  b: 2\n- s\n-\n  - 1\n  - 2\n- t\n"},
+		{"one-line mapping items", people, Style{SpaceSequences: true},
+			"- name: A\n  sex: m\n\n- key: k1\n- key: k2\n- name: B\n  sex: m\n"},
+		{"one-line mapping items before", people, Style{SpaceSequences: true, SpaceBefore: true},
+			"- name: A\n  sex: m\n\n- key: k1\n- key: k2\n\n- name: B\n  sex: m\n"},
+		{"mapping items", people, Style{SpaceSequences: true, SpaceMappingItems: true},
+			"- name: A\n  sex: m\n\n- key: k1\n\n- key: k2\n\n- name: B\n  sex: m\n"},
+		{"mapping items alone", people, Style{SpaceMappingItems: true},
+			"- name: A\n  sex: m\n- key: k1\n- key: k2\n- name: B\n  sex: m\n"},
+		{"mapping items mixed", `["a",{"k":1},{},"b"]`, Style{SpaceSequences: true, SpaceMappingItems: true},
+			"- a\n- k: 1\n\n- {}\n- b\n"},
+		{"mapping items before", `["a",{"k":1},{},"b"]`, Style{SpaceSequences: true, SpaceMappingItems: true, SpaceBefore: true},
+			"- a\n\n- k: 1\n\n- {}\n- b\n"},
 		{"block string", `{"t":"a\nb\n","u":1}`, Style{SpaceMappings: true},
 			"t: |\n  a\n  b\n\nu: 1\n"},
 		{"quoted string", `{"t":"a\nb\n","u":1}`, Style{SpaceMappings: true, Multiline: Quoted},

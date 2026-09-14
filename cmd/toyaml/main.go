@@ -94,6 +94,7 @@ func main() {
 	compactSeq := flag.Bool("compact-seq", false, "put a sequence at the indentation of its key")
 	spaceMap := flag.Bool("space-map", false, "blank line between mapping entries next to a multi-line value")
 	spaceSeq := flag.Bool("space-seq", false, "blank line between sequence items next to a multi-line value")
+	spaceMapItems := flag.Bool("space-map-items", false, "with -space-seq, space every mapping in a sequence, even a one-line one")
 	spaceBefore := flag.Bool("space-before", false, "also put a blank line before a multi-line value, not only after")
 	spaceLevel := flag.Int("space-level", 0, "space only containers nested at most this deep (default every level)")
 	version := flag.Bool("version", false, "print version and exit")
@@ -109,7 +110,7 @@ func main() {
 	}
 
 	if flag.NArg() > 1 {
-		fatalf("usage: toyaml [-f json|yaml] [-indent n] [-multiline block|quoted] [-compact-seq] [-space-map] [-space-seq] [-space-before] [-space-level n] [file]")
+		fatalf("usage: toyaml [-f json|yaml] [-indent n] [-multiline block|quoted] [-compact-seq] [-space-map] [-space-seq] [-space-map-items] [-space-before] [-space-level n] [file]")
 	}
 
 	ml, err := multilineStyle(*multiline)
@@ -127,13 +128,14 @@ func main() {
 	}
 
 	out, err := convert(inFormat, input, toyaml.Style{
-		Indent:          *indent,
-		Multiline:       ml,
-		CompactSequence: *compactSeq,
-		SpaceMappings:   *spaceMap,
-		SpaceSequences:  *spaceSeq,
-		SpaceBefore:     *spaceBefore,
-		SpaceMaxLevel:   *spaceLevel,
+		Indent:            *indent,
+		Multiline:         ml,
+		CompactSequence:   *compactSeq,
+		SpaceMappings:     *spaceMap,
+		SpaceSequences:    *spaceSeq,
+		SpaceMappingItems: *spaceMapItems,
+		SpaceBefore:       *spaceBefore,
+		SpaceMaxLevel:     *spaceLevel,
 	})
 	if err != nil {
 		fatalf("%v", err)

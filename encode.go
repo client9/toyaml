@@ -176,7 +176,7 @@ func (e *encoder) emitMapping(indent int) error {
 		if err := e.emitNested(indent); err != nil {
 			return err
 		}
-		sp.written(e, start)
+		sp.written(e, start, false)
 	}
 }
 
@@ -197,10 +197,14 @@ func (e *encoder) emitSequence(indent int) error {
 		}
 
 		start := len(e.out)
+		mapItem := e.style.SpaceMappingItems && e.dec.PeekKind() == '{'
 		if err := e.emitSeqItem(indent); err != nil {
 			return err
 		}
-		sp.written(e, start)
+		// A mapping with one scalar entry fits on the dash's line, and counts
+		// as multi-line only when asked, so that a list of mappings is spaced
+		// evenly. An empty one is "- {}" and never counts.
+		sp.written(e, start, mapItem && string(e.out[start:]) != "- {}")
 	}
 }
 
@@ -233,12 +237,12 @@ func (s *spacer) separate(e *encoder, indent int) {
 }
 
 // written records the entry that begins at offset start and has just been
-// written in full.
-func (s *spacer) written(e *encoder, start int) {
+// written in full. force counts it as multi-line whatever its length.
+func (s *spacer) written(e *encoder, start int, force bool) {
 	if !s.on {
 		return
 	}
-	multi := bytes.IndexByte(e.out[start:], '\n') >= 0
+	multi := force || bytes.IndexByte(e.out[start:], '\n') >= 0
 	if multi && e.style.SpaceBefore && s.sep >= 0 && !s.multi && e.blankable(s.sep) {
 		e.out = slices.Insert(e.out, s.sep, '\n')
 	}
