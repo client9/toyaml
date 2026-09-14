@@ -7,6 +7,7 @@
 //	toyaml -indent 4 file.json
 //	toyaml -multiline quoted file.json
 //	toyaml -compact-seq file.json
+//	toyaml -space-map -space-seq -space-before -space-level 1 file.json
 //
 // To convert YAML, TOML, or a JSON variant such as JSON5, convert it to JSON
 // first with the tojson command and pipe the result in.
@@ -50,6 +51,10 @@ func main() {
 	indent := flag.Int("indent", 0, "spaces per nesting level (default 2)")
 	multiline := flag.String("multiline", "block", "how to write multi-line strings: block or quoted")
 	compactSeq := flag.Bool("compact-seq", false, "put a sequence at the indentation of its key")
+	spaceMap := flag.Bool("space-map", false, "blank line between mapping entries next to a multi-line value")
+	spaceSeq := flag.Bool("space-seq", false, "blank line between sequence items next to a multi-line value")
+	spaceBefore := flag.Bool("space-before", false, "also put a blank line before a multi-line value, not only after")
+	spaceLevel := flag.Int("space-level", 0, "space only containers nested at most this deep (default every level)")
 	version := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
 
@@ -63,7 +68,7 @@ func main() {
 	}
 
 	if flag.NArg() > 1 {
-		fatalf("usage: toyaml [-indent n] [-multiline block|quoted] [-compact-seq] [file]")
+		fatalf("usage: toyaml [-indent n] [-multiline block|quoted] [-compact-seq] [-space-map] [-space-seq] [-space-before] [-space-level n] [file]")
 	}
 
 	ml, err := multilineStyle(*multiline)
@@ -80,6 +85,10 @@ func main() {
 		Indent:          *indent,
 		Multiline:       ml,
 		CompactSequence: *compactSeq,
+		SpaceMappings:   *spaceMap,
+		SpaceSequences:  *spaceSeq,
+		SpaceBefore:     *spaceBefore,
+		SpaceMaxLevel:   *spaceLevel,
 	})
 	if err != nil {
 		fatalf("%v", err)

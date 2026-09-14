@@ -5,6 +5,7 @@ import (
 	"encoding/json/jsontext"
 	"fmt"
 	"io"
+	"slices"
 	"unicode/utf8"
 )
 
@@ -49,6 +50,9 @@ func encode(src []byte, style Style) ([]byte, error) {
 	case BlockLiteral, Quoted:
 	default:
 		return nil, ErrUnknownMultiline
+	}
+	if style.SpaceMaxLevel < 0 {
+		return nil, ErrNegativeSpaceLevel
 	}
 
 	e := &encoder{
@@ -149,8 +153,8 @@ func (e *encoder) writeFlowEmpty(k jsontext.Kind) {
 }
 
 func (e *encoder) emitMapping(indent int) error {
-	first := true
-	for {
+	sp := e.newSpacer(e.style.SpaceMappings)
+	for first := true; ; first = false {
 		if e.dec.PeekKind() == '}' {
 			if _, err := e.dec.ReadToken(); err != nil {
 				return err
@@ -161,11 +165,10 @@ func (e *encoder) emitMapping(indent int) error {
 			return nil
 		}
 		if !first {
-			e.out = append(e.out, '\n')
-			e.writeIndent(indent)
+			sp.separate(e, indent)
 		}
-		first = false
 
+		start := len(e.out)
 		if err := e.emitKey(); err != nil {
 			return err
 		}
@@ -173,12 +176,13 @@ func (e *encoder) emitMapping(indent int) error {
 		if err := e.emitNested(indent); err != nil {
 			return err
 		}
+		sp.written(e, start)
 	}
 }
 
 func (e *encoder) emitSequence(indent int) error {
-	first := true
-	for {
+	sp := e.newSpacer(e.style.SpaceSequences)
+	for first := true; ; first = false {
 		if e.dec.PeekKind() == ']' {
 			if _, err := e.dec.ReadToken(); err != nil {
 				return err
@@ -189,15 +193,64 @@ func (e *encoder) emitSequence(indent int) error {
 			return nil
 		}
 		if !first {
-			e.out = append(e.out, '\n')
-			e.writeIndent(indent)
+			sp.separate(e, indent)
 		}
-		first = false
 
+		start := len(e.out)
 		if err := e.emitSeqItem(indent); err != nil {
 			return err
 		}
+		sp.written(e, start)
 	}
+}
+
+// spacer places the blank lines between the entries of one container.
+//
+// Whether an entry spans more than one line is known only once it has been
+// written, since telling a block string from a quoted one takes decoding it.
+// So a blank line owed after an entry is written with the next separator, and
+// one owed before an entry is inserted behind it at the separator's offset.
+// That insertion copies only the entry just written.
+type spacer struct {
+	on    bool // this container's entries are spaced
+	multi bool // the entry just written spans more than one line
+	sep   int  // offset of the line break ahead of the current entry, -1 for the first
+}
+
+func (e *encoder) newSpacer(kind bool) spacer {
+	on := kind && (e.style.SpaceMaxLevel == 0 || e.depth <= e.style.SpaceMaxLevel)
+	return spacer{on: on, sep: -1}
+}
+
+// separate writes the line break ahead of an entry other than the first.
+func (s *spacer) separate(e *encoder, indent int) {
+	s.sep = len(e.out)
+	if s.multi && e.blankable(s.sep) {
+		e.out = append(e.out, '\n')
+	}
+	e.out = append(e.out, '\n')
+	e.writeIndent(indent)
+}
+
+// written records the entry that begins at offset start and has just been
+// written in full.
+func (s *spacer) written(e *encoder, start int) {
+	if !s.on {
+		return
+	}
+	multi := bytes.IndexByte(e.out[start:], '\n') >= 0
+	if multi && e.style.SpaceBefore && s.sep >= 0 && !s.multi && e.blankable(s.sep) {
+		e.out = slices.Insert(e.out, s.sep, '\n')
+	}
+	s.multi = multi
+}
+
+// blankable reports whether a blank line may go at offset i, which a line
+// break follows. Output only ends a line there after a string with keep
+// chomping ("|+"), whose trailing blank lines are content, and a reader would
+// count one more.
+func (e *encoder) blankable(i int) bool {
+	return e.out[i-1] != '\n'
 }
 
 // emitSeqItem writes one item of a sequence indented at indent, dash included.

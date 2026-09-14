@@ -7,9 +7,10 @@
 //	out, err := toyaml.FromJSON(src)
 //
 // FromJSONStyle takes a Style to set the indent width, whether multi-line
-// strings use literal blocks or JSON-style quoting, and whether sequences are
-// indented under their key. Style never changes the document. Whatever the
-// settings, reading the output back yields the same data.
+// strings use literal blocks or JSON-style quoting, whether sequences are
+// indented under their key, and where blank lines set off multi-line values.
+// Style never changes the document. Whatever the settings, reading the output
+// back yields the same data.
 //
 // Strings are written as plain scalars where that round-trips, as literal
 // blocks ("|") where they contain newlines, and as double-quoted scalars

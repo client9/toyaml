@@ -430,6 +430,10 @@ var styleMatrix = []Style{
 	{CompactSequence: true},
 	{Indent: 1, CompactSequence: true},
 	{Indent: 4, Multiline: Quoted, CompactSequence: true},
+	{SpaceMappings: true, SpaceSequences: true},
+	{SpaceMappings: true, SpaceSequences: true, SpaceBefore: true},
+	{Indent: 4, CompactSequence: true, SpaceMappings: true, SpaceBefore: true, SpaceMaxLevel: 2},
+	{Multiline: Quoted, SpaceSequences: true, SpaceBefore: true},
 }
 
 // TestCorpus converts every JSON document in testdata to YAML under each
@@ -632,6 +636,68 @@ func TestStyleErrors(t *testing.T) {
 	if _, err := FromJSONStyle(src, Style{Multiline: 99}); !errors.Is(err, ErrUnknownMultiline) {
 		t.Errorf("unknown multiline: error = %v, want %v", err, ErrUnknownMultiline)
 	}
+	if _, err := FromJSONStyle(src, Style{SpaceMappings: true, SpaceMaxLevel: -1}); !errors.Is(err, ErrNegativeSpaceLevel) {
+		t.Errorf("negative space level: error = %v, want %v", err, ErrNegativeSpaceLevel)
+	}
+}
+
+func TestStyleSpacing(t *testing.T) {
+	mapping := `{"a":1,"b":2,"list":["x","z"],"obj":{"k":{"m":1},"p":2},"c":3,"e":[],"f":4}`
+	seq := `[{"a":1,"b":2},"s",[1,2],"t"]`
+	cases := []struct {
+		name  string
+		in    string
+		style Style
+		want  string
+	}{
+		{"off", mapping, Style{},
+			"a: 1\nb: 2\nlist:\n  - x\n  - z\nobj:\n  k:\n    m: 1\n  p: 2\nc: 3\ne: []\nf: 4\n"},
+		{"mappings", mapping, Style{SpaceMappings: true},
+			"a: 1\nb: 2\nlist:\n  - x\n  - z\n\nobj:\n  k:\n    m: 1\n\n  p: 2\n\nc: 3\ne: []\nf: 4\n"},
+		{"mappings before", mapping, Style{SpaceMappings: true, SpaceBefore: true},
+			"a: 1\nb: 2\n\nlist:\n  - x\n  - z\n\nobj:\n  k:\n    m: 1\n\n  p: 2\n\nc: 3\ne: []\nf: 4\n"},
+		{"mappings top level", mapping, Style{SpaceMappings: true, SpaceMaxLevel: 1},
+			"a: 1\nb: 2\nlist:\n  - x\n  - z\n\nobj:\n  k:\n    m: 1\n  p: 2\n\nc: 3\ne: []\nf: 4\n"},
+		{"level alone", mapping, Style{SpaceMaxLevel: 1},
+			"a: 1\nb: 2\nlist:\n  - x\n  - z\nobj:\n  k:\n    m: 1\n  p: 2\nc: 3\ne: []\nf: 4\n"},
+		{"sequences leave mappings", mapping, Style{SpaceSequences: true},
+			"a: 1\nb: 2\nlist:\n  - x\n  - z\nobj:\n  k:\n    m: 1\n  p: 2\nc: 3\ne: []\nf: 4\n"},
+		{"sequences", seq, Style{SpaceSequences: true},
+			"- a: 1\n  b: 2\n\n- s\n-\n  - 1\n  - 2\n\n- t\n"},
+		{"sequences before", seq, Style{SpaceSequences: true, SpaceBefore: true},
+			"- a: 1\n  b: 2\n\n- s\n\n-\n  - 1\n  - 2\n\n- t\n"},
+		{"mappings leave sequences", seq, Style{SpaceMappings: true},
+			"- a: 1\n  b: 2\n- s\n-\n  - 1\n  - 2\n- t\n"},
+		{"block string", `{"t":"a\nb\n","u":1}`, Style{SpaceMappings: true},
+			"t: |\n  a\n  b\n\nu: 1\n"},
+		{"quoted string", `{"t":"a\nb\n","u":1}`, Style{SpaceMappings: true, Multiline: Quoted},
+			"t: \"a\\nb\\n\"\nu: 1\n"},
+		// A blank line after a keep block would be read as part of the string.
+		{"keep chomping after", `{"t":"a\n\n","u":1}`, Style{SpaceMappings: true},
+			"t: |+\n  a\n\nu: 1\n"},
+		{"keep chomping nested", `{"o":{"t":"a\n\n"},"u":1}`, Style{SpaceMappings: true},
+			"o:\n  t: |+\n    a\n\nu: 1\n"},
+		{"keep chomping before", `{"t":"a\n\n","o":{"k":1}}`, Style{SpaceMappings: true, SpaceBefore: true},
+			"t: |+\n  a\n\no:\n  k: 1\n"},
+	}
+	for _, tc := range cases {
+		got, err := FromJSONStyle([]byte(tc.in), tc.style)
+		if err != nil {
+			t.Errorf("%s: error = %v", tc.name, err)
+			continue
+		}
+		if string(got) != tc.want {
+			t.Errorf("%s =\n%q\nwant\n%q", tc.name, got, tc.want)
+		}
+		back, err := tojson.FromYAML(got)
+		if err != nil {
+			t.Errorf("%s: FromYAML(%q) error = %v", tc.name, got, err)
+			continue
+		}
+		if !sameJSON(t, []byte(tc.in), back) {
+			t.Errorf("%s: round trip mismatch: %s", tc.name, back)
+		}
+	}
 }
 
 // Style changes the shape of the output, never the document.
@@ -710,17 +776,21 @@ func TestBlockScalarKeepChomping(t *testing.T) {
 		`{"t":"a\n\nb\n\n"}`,
 		`["x\n\n"]`,
 		`{"outer":{"t":"a\n\n"},"after":1}`,
+		`{"before":1,"t":"a\n\n","list":[1,2],"u":{"v":"b\n\n"},"w":2}`,
+		`[["x\n\n"],"y",{"z":"a\n\n"},[1,2]]`,
 	} {
-		y, err := FromJSON([]byte(in))
-		if err != nil {
-			t.Fatalf("FromJSON(%s) error = %v", in, err)
-		}
-		back, err := tojson.FromYAML(y)
-		if err != nil {
-			t.Fatalf("FromYAML(%q) error = %v", y, err)
-		}
-		if !sameJSON(t, []byte(in), back) {
-			t.Errorf("round trip mismatch for %s\n got: %s\nyaml: %q", in, back, y)
+		for _, style := range styleMatrix {
+			y, err := FromJSONStyle([]byte(in), style)
+			if err != nil {
+				t.Fatalf("FromJSONStyle(%s, %+v) error = %v", in, style, err)
+			}
+			back, err := tojson.FromYAML(y)
+			if err != nil {
+				t.Fatalf("FromYAML(%q) error = %v", y, err)
+			}
+			if !sameJSON(t, []byte(in), back) {
+				t.Errorf("style %+v: round trip mismatch for %s\n got: %s\nyaml: %q", style, in, back, y)
+			}
 		}
 	}
 }

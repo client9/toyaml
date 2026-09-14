@@ -13,6 +13,9 @@ var (
 
 	// ErrUnknownMultiline reports a Style.Multiline that is not a defined style.
 	ErrUnknownMultiline = errors.New("toyaml: Style.Multiline is not a known style")
+
+	// ErrNegativeSpaceLevel reports a Style.SpaceMaxLevel below zero.
+	ErrNegativeSpaceLevel = errors.New("toyaml: Style.SpaceMaxLevel must not be negative")
 )
 
 var (

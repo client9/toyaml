@@ -39,6 +39,34 @@ type Style struct {
 	// nested directly in another sequence always gets its own indented lines,
 	// where the compact form would read as a sibling item.
 	CompactSequence bool
+
+	// SpaceMappings puts a blank line between two entries of a mapping when
+	// the first spans more than one line, which sets off a nested mapping,
+	// sequence or block string from the key that follows it:
+	//
+	//	list:
+	//	  - a
+	//	  - b
+	//
+	//	name: app
+	//
+	// An empty {} or [] fits on one line and does not count. No blank line
+	// follows a string written with keep chomping ("|+"), where a reader would
+	// take it as part of the string.
+	SpaceMappings bool
+
+	// SpaceSequences is SpaceMappings for the items of a sequence.
+	SpaceSequences bool
+
+	// SpaceBefore also puts a blank line ahead of an entry that spans more
+	// than one line, so it is set off from the entry before it as well as the
+	// one after. It applies wherever SpaceMappings or SpaceSequences does.
+	SpaceBefore bool
+
+	// SpaceMaxLevel limits spacing to containers nested at most this deep,
+	// counting the top-level container as 1. Zero means every level. It has no
+	// effect unless SpaceMappings or SpaceSequences is set.
+	SpaceMaxLevel int
 }
 
 // FromJSON converts a JSON document to block-style YAML with the default
