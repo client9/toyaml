@@ -11,8 +11,8 @@
 //	toyaml -multiline quoted file.json
 //	toyaml -quote double file.json        # or single, or adaptive, the default
 //	toyaml -compact-seq file.json
-//	toyaml -space-map -space-seq -space-before -space-level 1 file.json
-//	toyaml -space-seq-maps file.json      # spaces one-line mappings too
+//	toyaml -space-map -space-seq multiline -space-before -space-level 1 file.json
+//	toyaml -space-seq mappings file.json  # spaces one-line mappings too
 //
 // YAML is read with github.com/client9/tojson, which accepts a subset of YAML
 // and does not keep comments, so reformatting drops them. To convert TOML or a
@@ -95,17 +95,17 @@ func quoteStyle(name string) (toyaml.QuoteStyle, error) {
 	return 0, fmt.Errorf("unknown quote style %q, want adaptive, double or single", name)
 }
 
-// sequenceSpacing maps the two sequence-spacing flags onto the spacing they
-// name. Both turn spacing on, so neither is a flag that quietly does nothing;
-// -space-seq-maps is the wider of the two and wins when both are given.
-func sequenceSpacing(seq, maps bool) toyaml.SequenceSpacing {
-	switch {
-	case maps:
-		return toyaml.SpaceSeqMappings
-	case seq:
-		return toyaml.SpaceSeqMultiline
+// sequenceSpacing maps the -space-seq flag to the spacing it names.
+func sequenceSpacing(name string) (toyaml.SequenceSpacing, error) {
+	switch strings.ToLower(name) {
+	case "none":
+		return toyaml.SpaceSeqNone, nil
+	case "multiline":
+		return toyaml.SpaceSeqMultiline, nil
+	case "mappings":
+		return toyaml.SpaceSeqMappings, nil
 	}
-	return toyaml.SpaceSeqNone
+	return 0, fmt.Errorf("unknown sequence spacing %q, want none, multiline or mappings", name)
 }
 
 // checkSpacing reports a spacing flag that cannot do anything, which is
@@ -134,7 +134,7 @@ func checkSpacing(spaceMap bool, seq toyaml.SequenceSpacing, before bool, level 
 	if len(inert) > 1 {
 		needs = "need"
 	}
-	return fmt.Errorf("%s %s -space-map, -space-seq or -space-seq-maps",
+	return fmt.Errorf("%s %s -space-map or -space-seq",
 		strings.Join(inert, " and "), needs)
 }
 
@@ -152,8 +152,7 @@ func main() {
 	quote := flag.String("quote", "adaptive", "quotes around a string that cannot be plain: adaptive, double or single")
 	compactSeq := flag.Bool("compact-seq", false, "put a sequence at the indentation of its key")
 	spaceMap := flag.Bool("space-map", false, "blank line between mapping entries next to a multi-line value")
-	spaceSeq := flag.Bool("space-seq", false, "blank line between sequence items next to a multi-line value")
-	spaceSeqMaps := flag.Bool("space-seq-maps", false, "blank line between sequence items, counting every mapping, even a one-line one")
+	spaceSeq := flag.String("space-seq", "none", "blank line between sequence items: none, multiline, or mappings to count a one-line mapping too")
 	spaceBefore := flag.Bool("space-before", false, "also put a blank line before a multi-line value, not only after")
 	spaceLevel := flag.Int("space-level", 0, "space only containers nested at most this deep (default every level)")
 	version := flag.Bool("version", false, "print version and exit")
@@ -169,7 +168,7 @@ func main() {
 	}
 
 	if flag.NArg() > 1 {
-		fatalf("usage: toyaml [-f json|yaml] [-indent n] [-multiline block|quoted] [-quote adaptive|double|single] [-compact-seq] [-space-map] [-space-seq] [-space-seq-maps] [-space-before] [-space-level n] [file]")
+		fatalf("usage: toyaml [-f json|yaml] [-indent n] [-multiline block|quoted] [-quote adaptive|double|single] [-compact-seq] [-space-map] [-space-seq none|multiline|mappings] [-space-before] [-space-level n] [file]")
 	}
 
 	ml, err := multilineStyle(*multiline)
@@ -180,7 +179,10 @@ func main() {
 	if err != nil {
 		fatalf("%v", err)
 	}
-	seq := sequenceSpacing(*spaceSeq, *spaceSeqMaps)
+	seq, err := sequenceSpacing(*spaceSeq)
+	if err != nil {
+		fatalf("%v", err)
+	}
 	if err := checkSpacing(*spaceMap, seq, *spaceBefore, *spaceLevel); err != nil {
 		fatalf("%v", err)
 	}

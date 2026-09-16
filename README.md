@@ -122,6 +122,8 @@ cat file.json | toyaml
 toyaml -indent 4 file.json
 toyaml -multiline quoted file.json
 toyaml -compact-seq file.json
+toyaml -space-map -space-seq multiline -space-before file.json
+toyaml -space-seq mappings file.json  # spaces one-line mappings too
 ```
 
 To convert something that is not JSON, convert it to JSON first:
