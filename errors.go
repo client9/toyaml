@@ -17,6 +17,10 @@ var (
 	// ErrUnknownQuote reports a Style.Quote that is not a defined style.
 	ErrUnknownQuote = errors.New("toyaml: Style.Quote is not a known style")
 
+	// ErrUnknownSequenceSpacing reports a Style.SpaceSequences that is not a
+	// defined spacing.
+	ErrUnknownSequenceSpacing = errors.New("toyaml: Style.SpaceSequences is not a known spacing")
+
 	// ErrNegativeSpaceLevel reports a Style.SpaceMaxLevel below zero.
 	ErrNegativeSpaceLevel = errors.New("toyaml: Style.SpaceMaxLevel must not be negative")
 )

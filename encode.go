@@ -56,6 +56,11 @@ func encode(src []byte, style Style) ([]byte, error) {
 	default:
 		return nil, ErrUnknownQuote
 	}
+	switch style.SpaceSequences {
+	case SpaceSeqNone, SpaceSeqMultiline, SpaceSeqMappings:
+	default:
+		return nil, ErrUnknownSequenceSpacing
+	}
 	if style.SpaceMaxLevel < 0 {
 		return nil, ErrNegativeSpaceLevel
 	}
@@ -186,7 +191,7 @@ func (e *encoder) emitMapping(indent int) error {
 }
 
 func (e *encoder) emitSequence(indent int) error {
-	sp := e.newSpacer(e.style.SpaceSequences)
+	sp := e.newSpacer(e.style.SpaceSequences != SpaceSeqNone)
 	for first := true; ; first = false {
 		if e.dec.PeekKind() == ']' {
 			if _, err := e.dec.ReadToken(); err != nil {
@@ -202,7 +207,7 @@ func (e *encoder) emitSequence(indent int) error {
 		}
 
 		start := len(e.out)
-		mapItem := e.style.SpaceMappingItems && e.dec.PeekKind() == '{'
+		mapItem := e.style.SpaceSequences == SpaceSeqMappings && e.dec.PeekKind() == '{'
 		if err := e.emitSeqItem(indent); err != nil {
 			return err
 		}

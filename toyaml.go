@@ -38,6 +38,36 @@ const (
 	QuoteSingle
 )
 
+// SequenceSpacing selects which items of a sequence are set off from their
+// neighbours by a blank line. It is one value rather than a switch and a
+// modifier because the two are not independent: there is no measurement to
+// adjust while the spacing is off, and a setting that silently does nothing is
+// a setting that reads as broken.
+type SequenceSpacing int
+
+const (
+	// SpaceSeqNone leaves the items of a sequence packed together.
+	SpaceSeqNone SequenceSpacing = iota
+
+	// SpaceSeqMultiline sets off an item that spans more than one line, which
+	// is a nested mapping or sequence, a block string, or a mapping with more
+	// than one entry.
+	SpaceSeqMultiline
+
+	// SpaceSeqMappings also counts a mapping that fits on the dash's line, so
+	// a list of mappings is spaced evenly however many entries each has:
+	//
+	//	- name: a
+	//	  role: admin
+	//
+	//	- name: b
+	//
+	//	- name: c
+	//
+	// An empty mapping is "- {}" and never counts, and neither does a scalar.
+	SpaceSeqMappings
+)
+
 // Style controls the shape of the output. Its zero value is the default: two
 // spaces per level, literal blocks for multi-line strings, sequences indented
 // under their key, and quotes chosen to escape least.
@@ -85,22 +115,9 @@ type Style struct {
 	// take it as part of the string.
 	SpaceMappings bool
 
-	// SpaceSequences is SpaceMappings for the items of a sequence.
-	SpaceSequences bool
-
-	// SpaceMappingItems counts every non-empty mapping in a sequence as
-	// multi-line, including one that fits on the dash's line, so a list of
-	// mappings is spaced evenly however many entries each has:
-	//
-	//	- name: a
-	//	  role: admin
-	//
-	//	- name: b
-	//
-	//	- name: c
-	//
-	// It has no effect unless SpaceSequences is set.
-	SpaceMappingItems bool
+	// SpaceSequences is SpaceMappings for the items of a sequence, and says
+	// which items count as worth setting off.
+	SpaceSequences SequenceSpacing
 
 	// SpaceBefore also puts a blank line ahead of an entry that spans more
 	// than one line, so it is set off from the entry before it as well as the
@@ -109,7 +126,7 @@ type Style struct {
 
 	// SpaceMaxLevel limits spacing to containers nested at most this deep,
 	// counting the top-level container as 1. Zero means every level. It has no
-	// effect unless SpaceMappings or SpaceSequences is set.
+	// effect unless SpaceMappings or SpaceSequences asks for a blank line.
 	SpaceMaxLevel int
 }
 

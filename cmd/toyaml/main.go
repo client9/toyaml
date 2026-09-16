@@ -12,6 +12,7 @@
 //	toyaml -quote double file.json        # or single, or adaptive, the default
 //	toyaml -compact-seq file.json
 //	toyaml -space-map -space-seq -space-before -space-level 1 file.json
+//	toyaml -space-seq-maps file.json      # spaces one-line mappings too
 //
 // YAML is read with github.com/client9/tojson, which accepts a subset of YAML
 // and does not keep comments, so reformatting drops them. To convert TOML or a
@@ -94,6 +95,49 @@ func quoteStyle(name string) (toyaml.QuoteStyle, error) {
 	return 0, fmt.Errorf("unknown quote style %q, want adaptive, double or single", name)
 }
 
+// sequenceSpacing maps the two sequence-spacing flags onto the spacing they
+// name. Both turn spacing on, so neither is a flag that quietly does nothing;
+// -space-seq-maps is the wider of the two and wins when both are given.
+func sequenceSpacing(seq, maps bool) toyaml.SequenceSpacing {
+	switch {
+	case maps:
+		return toyaml.SpaceSeqMappings
+	case seq:
+		return toyaml.SpaceSeqMultiline
+	}
+	return toyaml.SpaceSeqNone
+}
+
+// checkSpacing reports a spacing flag that cannot do anything, which is
+// -space-before or -space-level with no spacing turned on for it to qualify.
+// Both read as qualifiers rather than instructions, so passing one alone is a
+// half-written command rather than a request for nothing, and saying so beats
+// printing the input back unchanged.
+//
+// A negative -space-level falls through to the library, whose complaint about
+// the value itself is the more useful one.
+func checkSpacing(spaceMap bool, seq toyaml.SequenceSpacing, before bool, level int) error {
+	if spaceMap || seq != toyaml.SpaceSeqNone {
+		return nil
+	}
+	var inert []string
+	if before {
+		inert = append(inert, "-space-before")
+	}
+	if level > 0 {
+		inert = append(inert, "-space-level")
+	}
+	if inert == nil {
+		return nil
+	}
+	needs := "needs"
+	if len(inert) > 1 {
+		needs = "need"
+	}
+	return fmt.Errorf("%s %s -space-map, -space-seq or -space-seq-maps",
+		strings.Join(inert, " and "), needs)
+}
+
 func readInput(args []string) ([]byte, error) {
 	if len(args) == 0 {
 		return io.ReadAll(os.Stdin)
@@ -109,7 +153,7 @@ func main() {
 	compactSeq := flag.Bool("compact-seq", false, "put a sequence at the indentation of its key")
 	spaceMap := flag.Bool("space-map", false, "blank line between mapping entries next to a multi-line value")
 	spaceSeq := flag.Bool("space-seq", false, "blank line between sequence items next to a multi-line value")
-	spaceMapItems := flag.Bool("space-map-items", false, "with -space-seq, space every mapping in a sequence, even a one-line one")
+	spaceSeqMaps := flag.Bool("space-seq-maps", false, "blank line between sequence items, counting every mapping, even a one-line one")
 	spaceBefore := flag.Bool("space-before", false, "also put a blank line before a multi-line value, not only after")
 	spaceLevel := flag.Int("space-level", 0, "space only containers nested at most this deep (default every level)")
 	version := flag.Bool("version", false, "print version and exit")
@@ -125,7 +169,7 @@ func main() {
 	}
 
 	if flag.NArg() > 1 {
-		fatalf("usage: toyaml [-f json|yaml] [-indent n] [-multiline block|quoted] [-quote adaptive|double|single] [-compact-seq] [-space-map] [-space-seq] [-space-map-items] [-space-before] [-space-level n] [file]")
+		fatalf("usage: toyaml [-f json|yaml] [-indent n] [-multiline block|quoted] [-quote adaptive|double|single] [-compact-seq] [-space-map] [-space-seq] [-space-seq-maps] [-space-before] [-space-level n] [file]")
 	}
 
 	ml, err := multilineStyle(*multiline)
@@ -134,6 +178,10 @@ func main() {
 	}
 	q, err := quoteStyle(*quote)
 	if err != nil {
+		fatalf("%v", err)
+	}
+	seq := sequenceSpacing(*spaceSeq, *spaceSeqMaps)
+	if err := checkSpacing(*spaceMap, seq, *spaceBefore, *spaceLevel); err != nil {
 		fatalf("%v", err)
 	}
 	inFormat, err := inputFormat(*format, flag.Args())
@@ -147,15 +195,14 @@ func main() {
 	}
 
 	out, err := convert(inFormat, input, toyaml.Style{
-		Indent:            *indent,
-		Multiline:         ml,
-		Quote:             q,
-		CompactSequence:   *compactSeq,
-		SpaceMappings:     *spaceMap,
-		SpaceSequences:    *spaceSeq,
-		SpaceMappingItems: *spaceMapItems,
-		SpaceBefore:       *spaceBefore,
-		SpaceMaxLevel:     *spaceLevel,
+		Indent:          *indent,
+		Multiline:       ml,
+		Quote:           q,
+		CompactSequence: *compactSeq,
+		SpaceMappings:   *spaceMap,
+		SpaceSequences:  seq,
+		SpaceBefore:     *spaceBefore,
+		SpaceMaxLevel:   *spaceLevel,
 	})
 	if err != nil {
 		fatalf("%v", err)

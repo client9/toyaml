@@ -58,6 +58,61 @@ func TestQuoteStyle(t *testing.T) {
 	}
 }
 
+// Neither sequence-spacing flag is a no-op on its own, and the wider one wins.
+func TestSequenceSpacing(t *testing.T) {
+	cases := []struct {
+		seq, maps bool
+		want      toyaml.SequenceSpacing
+	}{
+		{false, false, toyaml.SpaceSeqNone},
+		{true, false, toyaml.SpaceSeqMultiline},
+		{false, true, toyaml.SpaceSeqMappings},
+		{true, true, toyaml.SpaceSeqMappings},
+	}
+	for _, tc := range cases {
+		if got := sequenceSpacing(tc.seq, tc.maps); got != tc.want {
+			t.Errorf("sequenceSpacing(%v, %v) = %v, want %v", tc.seq, tc.maps, got, tc.want)
+		}
+	}
+}
+
+func TestCheckSpacing(t *testing.T) {
+	cases := []struct {
+		name     string
+		spaceMap bool
+		seq      toyaml.SequenceSpacing
+		before   bool
+		level    int
+		wantErr  string
+	}{
+		{name: "nothing set"},
+		{name: "mappings only", spaceMap: true},
+		{name: "sequences only", seq: toyaml.SpaceSeqMultiline},
+		{name: "before with mappings", spaceMap: true, before: true},
+		{name: "before with sequences", seq: toyaml.SpaceSeqMappings, before: true},
+		{name: "level with mappings", spaceMap: true, level: 2},
+		{name: "before alone", before: true,
+			wantErr: "-space-before needs -space-map, -space-seq or -space-seq-maps"},
+		{name: "level alone", level: 2,
+			wantErr: "-space-level needs -space-map, -space-seq or -space-seq-maps"},
+		{name: "both alone", before: true, level: 1,
+			wantErr: "-space-before and -space-level need -space-map, -space-seq or -space-seq-maps"},
+		// a bad value is the library's complaint to make, not ours
+		{name: "negative level alone", level: -1},
+	}
+	for _, tc := range cases {
+		err := checkSpacing(tc.spaceMap, tc.seq, tc.before, tc.level)
+		switch {
+		case tc.wantErr == "" && err != nil:
+			t.Errorf("%s: checkSpacing() = %v, want nil", tc.name, err)
+		case tc.wantErr != "" && err == nil:
+			t.Errorf("%s: checkSpacing() = nil, want %q", tc.name, tc.wantErr)
+		case tc.wantErr != "" && err.Error() != tc.wantErr:
+			t.Errorf("%s: checkSpacing() = %q, want %q", tc.name, err, tc.wantErr)
+		}
+	}
+}
+
 func TestInputFormat(t *testing.T) {
 	cases := []struct {
 		flag    string

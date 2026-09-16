@@ -66,6 +66,10 @@ same data.
 | `Multiline` | `BlockLiteral` or `Quoted` for strings containing newlines | `BlockLiteral` |
 | `Quote` | `QuoteAdaptive`, `QuoteDouble` or `QuoteSingle` for a string that must be quoted | `QuoteAdaptive` |
 | `CompactSequence` | put a sequence at the indentation of its key | false |
+| `SpaceMappings` | blank line between mapping entries next to a multi-line value | false |
+| `SpaceSequences` | `SpaceSeqNone`, `SpaceSeqMultiline`, or `SpaceSeqMappings` to count one-line mappings too | `SpaceSeqNone` |
+| `SpaceBefore` | also put a blank line before a multi-line value, not only after | false |
+| `SpaceMaxLevel` | space only containers nested at most this deep | 0 (every level) |
 
 ```go
 out, err := toyaml.FromJSONStyle(src, toyaml.Style{Indent: 4, CompactSequence: true})

@@ -430,10 +430,10 @@ var styleMatrix = []Style{
 	{CompactSequence: true},
 	{Indent: 1, CompactSequence: true},
 	{Indent: 4, Multiline: Quoted, CompactSequence: true},
-	{SpaceMappings: true, SpaceSequences: true},
-	{SpaceMappings: true, SpaceSequences: true, SpaceBefore: true},
+	{SpaceMappings: true, SpaceSequences: SpaceSeqMultiline},
+	{SpaceMappings: true, SpaceSequences: SpaceSeqMultiline, SpaceBefore: true},
 	{Indent: 4, CompactSequence: true, SpaceMappings: true, SpaceBefore: true, SpaceMaxLevel: 2},
-	{Multiline: Quoted, SpaceSequences: true, SpaceBefore: true, SpaceMappingItems: true},
+	{Multiline: Quoted, SpaceSequences: SpaceSeqMappings, SpaceBefore: true},
 	// Every entry above leaves Quote zero, so they cover the adaptive default;
 	// these cover the two settings that name a form outright.
 	{Quote: QuoteDouble},
@@ -645,6 +645,9 @@ func TestStyleErrors(t *testing.T) {
 	if _, err := FromJSONStyle(src, Style{Quote: 99}); !errors.Is(err, ErrUnknownQuote) {
 		t.Errorf("unknown quote: error = %v, want %v", err, ErrUnknownQuote)
 	}
+	if _, err := FromJSONStyle(src, Style{SpaceSequences: 99}); !errors.Is(err, ErrUnknownSequenceSpacing) {
+		t.Errorf("unknown sequence spacing: error = %v, want %v", err, ErrUnknownSequenceSpacing)
+	}
 	if _, err := FromJSONStyle(src, Style{SpaceMappings: true, SpaceMaxLevel: -1}); !errors.Is(err, ErrNegativeSpaceLevel) {
 		t.Errorf("negative space level: error = %v, want %v", err, ErrNegativeSpaceLevel)
 	}
@@ -670,25 +673,23 @@ func TestStyleSpacing(t *testing.T) {
 			"a: 1\nb: 2\nlist:\n  - x\n  - z\n\nobj:\n  k:\n    m: 1\n  p: 2\n\nc: 3\ne: []\nf: 4\n"},
 		{"level alone", mapping, Style{SpaceMaxLevel: 1},
 			"a: 1\nb: 2\nlist:\n  - x\n  - z\nobj:\n  k:\n    m: 1\n  p: 2\nc: 3\ne: []\nf: 4\n"},
-		{"sequences leave mappings", mapping, Style{SpaceSequences: true},
+		{"sequences leave mappings", mapping, Style{SpaceSequences: SpaceSeqMultiline},
 			"a: 1\nb: 2\nlist:\n  - x\n  - z\nobj:\n  k:\n    m: 1\n  p: 2\nc: 3\ne: []\nf: 4\n"},
-		{"sequences", seq, Style{SpaceSequences: true},
+		{"sequences", seq, Style{SpaceSequences: SpaceSeqMultiline},
 			"- a: 1\n  b: 2\n\n- s\n-\n  - 1\n  - 2\n\n- t\n"},
-		{"sequences before", seq, Style{SpaceSequences: true, SpaceBefore: true},
+		{"sequences before", seq, Style{SpaceSequences: SpaceSeqMultiline, SpaceBefore: true},
 			"- a: 1\n  b: 2\n\n- s\n\n-\n  - 1\n  - 2\n\n- t\n"},
 		{"mappings leave sequences", seq, Style{SpaceMappings: true},
 			"- a: 1\n  b: 2\n- s\n-\n  - 1\n  - 2\n- t\n"},
-		{"one-line mapping items", people, Style{SpaceSequences: true},
+		{"one-line mapping items", people, Style{SpaceSequences: SpaceSeqMultiline},
 			"- name: A\n  sex: m\n\n- key: k1\n- key: k2\n- name: B\n  sex: m\n"},
-		{"one-line mapping items before", people, Style{SpaceSequences: true, SpaceBefore: true},
+		{"one-line mapping items before", people, Style{SpaceSequences: SpaceSeqMultiline, SpaceBefore: true},
 			"- name: A\n  sex: m\n\n- key: k1\n- key: k2\n\n- name: B\n  sex: m\n"},
-		{"mapping items", people, Style{SpaceSequences: true, SpaceMappingItems: true},
+		{"mapping items", people, Style{SpaceSequences: SpaceSeqMappings},
 			"- name: A\n  sex: m\n\n- key: k1\n\n- key: k2\n\n- name: B\n  sex: m\n"},
-		{"mapping items alone", people, Style{SpaceMappingItems: true},
-			"- name: A\n  sex: m\n- key: k1\n- key: k2\n- name: B\n  sex: m\n"},
-		{"mapping items mixed", `["a",{"k":1},{},"b"]`, Style{SpaceSequences: true, SpaceMappingItems: true},
+		{"mapping items mixed", `["a",{"k":1},{},"b"]`, Style{SpaceSequences: SpaceSeqMappings},
 			"- a\n- k: 1\n\n- {}\n- b\n"},
-		{"mapping items before", `["a",{"k":1},{},"b"]`, Style{SpaceSequences: true, SpaceMappingItems: true, SpaceBefore: true},
+		{"mapping items before", `["a",{"k":1},{},"b"]`, Style{SpaceSequences: SpaceSeqMappings, SpaceBefore: true},
 			"- a\n\n- k: 1\n\n- {}\n- b\n"},
 		{"block string", `{"t":"a\nb\n","u":1}`, Style{SpaceMappings: true},
 			"t: |\n  a\n  b\n\nu: 1\n"},
