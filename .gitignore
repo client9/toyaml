@@ -31,3 +31,7 @@ go.work.sum
 # .idea/
 # .vscode/
 
+# The CLI binary, built into the repo root by "go build ./cmd/toyaml".
+# Anchored: an unanchored "toyaml" would also match the cmd/toyaml directory
+# and hide the command's source.
+/toyaml
