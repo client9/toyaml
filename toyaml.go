@@ -93,7 +93,7 @@ type Style struct {
 	// that introduces it, rather than one level deeper:
 	//
 	//	tags:          tags:
-	//	  - a            vs   - a
+	//	  - a     vs   - a
 	//
 	// It applies only to a sequence that is a mapping value. A sequence
 	// nested directly in another sequence always gets its own indented lines,
