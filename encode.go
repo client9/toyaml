@@ -51,6 +51,11 @@ func encode(src []byte, style Style) ([]byte, error) {
 	default:
 		return nil, ErrUnknownMultiline
 	}
+	switch style.Quote {
+	case QuoteAdaptive, QuoteDouble, QuoteSingle:
+	default:
+		return nil, ErrUnknownQuote
+	}
 	if style.SpaceMaxLevel < 0 {
 		return nil, ErrNegativeSpaceLevel
 	}
@@ -394,13 +399,54 @@ func (e *encoder) writeMaybePlain(s []byte) error {
 	return e.writeQuoted(s)
 }
 
-// writeQuoted writes s as a double-quoted scalar. JSON's escaping of a string
+// writeQuoted writes s as a quoted scalar in the configured style. Single
+// quotes are used only where they can hold s as itself; the double-quoted form,
+// which can escape anything, is the fallback and what every other setting lands
+// on. Under QuoteAdaptive the gain is checked first, since it is the cheaper
+// pass and a string with nothing to gain is the common case.
+func (e *encoder) writeQuoted(s []byte) error {
+	switch e.style.Quote {
+	case QuoteAdaptive:
+		if singleGain(s) >= 0 && singleSafe(s) {
+			e.writeSingleQuoted(s)
+			return nil
+		}
+	case QuoteSingle:
+		if singleSafe(s) {
+			e.writeSingleQuoted(s)
+			return nil
+		}
+	}
+	return e.writeDoubleQuoted(s)
+}
+
+// writeSingleQuoted writes s as a single-quoted scalar. That form has one
+// escape, a doubled quote, and carries everything else as itself, so the body is
+// copied in runs straight into e.out rather than built somewhere first. Copying
+// verbatim is safe because decodeString has already rejected the invalid UTF-8
+// that writeDoubleQuoted is spared by AppendQuote.
+func (e *encoder) writeSingleQuoted(s []byte) {
+	e.out = append(e.out, '\'')
+	start := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] != '\'' {
+			continue
+		}
+		e.out = append(e.out, s[start:i+1]...) // the quote itself
+		e.out = append(e.out, '\'')            // and again, which is the escape
+		start = i + 1
+	}
+	e.out = append(e.out, s[start:]...)
+	e.out = append(e.out, '\'')
+}
+
+// writeDoubleQuoted writes s as a double-quoted scalar. JSON's escaping of a string
 // is valid inside a YAML double-quoted scalar, so the body comes straight from
 // jsontext, with one addition. JSON escapes the C0 controls and stops there,
 // while YAML also has no literal spelling for DEL and the C1 controls, and
 // treats three characters above ASCII as line breaks. Left raw, a break ends
 // the line even inside quotes and comes back folded into a space.
-func (e *encoder) writeQuoted(s []byte) error {
+func (e *encoder) writeDoubleQuoted(s []byte) error {
 	q, err := jsontext.AppendQuote(e.scratch[:0], s)
 	if err != nil {
 		return err

@@ -64,6 +64,7 @@ same data.
 | --- | --- | --- |
 | `Indent` | spaces per nesting level | 2 |
 | `Multiline` | `BlockLiteral` or `Quoted` for strings containing newlines | `BlockLiteral` |
+| `Quote` | `QuoteAdaptive`, `QuoteDouble` or `QuoteSingle` for a string that must be quoted | `QuoteAdaptive` |
 | `CompactSequence` | put a sequence at the indentation of its key | false |
 
 ```go
@@ -73,10 +74,15 @@ out, err := toyaml.FromJSONStyle(src, toyaml.Style{Indent: 4, CompactSequence: t
 ## How values are written
 
 - **Strings** are written as plain scalars where that reads back unchanged, as
-  literal blocks (`|`) where they contain newlines, and as double-quoted
-  scalars otherwise. A string a YAML reader would resolve to a bool, null, a
-  number, or a timestamp is quoted, so `"0x10"` and `"yes"` come back as
-  strings.
+  literal blocks (`|`) where they contain newlines, and as quoted scalars
+  otherwise. A string a YAML reader would resolve to a bool, null, a number, or
+  a timestamp is quoted, so `'0x10'` and `'yes'` come back as strings.
+- **Quoted scalars** take whichever quotes escape less, so `C:\dir` and
+  `say "hi"` come out single-quoted and `it's` double-quoted. `Style.Quote`
+  names one form outright instead. A single-quoted scalar escapes nothing but a
+  quote of its own, which it doubles, so a string holding a line break or a
+  character YAML has no literal spelling for is double-quoted whatever the
+  setting.
 - **Numbers** pass through as written, with no evaluation, so a value too large
   for `float64` keeps its digits.
 - **Empty containers** are written in flow form, `{}` and `[]`, since block
@@ -107,6 +113,7 @@ go install github.com/client9/toyaml/cmd/toyaml@latest
 
 ```bash
 toyaml file.json
+toyaml -quote double file.json        # or single, or adaptive, the default
 cat file.json | toyaml
 toyaml -indent 4 file.json
 toyaml -multiline quoted file.json

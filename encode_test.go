@@ -39,11 +39,11 @@ func TestFromJSON(t *testing.T) {
 		{"emptyInSeq", `[{},[],1]`,
 			"- {}\n- []\n- 1\n"},
 		{"quotedWhenAmbiguous", `{"a":"true","b":"123","c":"","d":"yes"}`,
-			"a: \"true\"\nb: \"123\"\nc: \"\"\nd: \"yes\"\n"},
+			"a: 'true'\nb: '123'\nc: ''\nd: 'yes'\n"},
 		{"quotedIndicators", `{"a":"- x","b":"x: y","c":"#c","d":" pad "}`,
-			"a: \"- x\"\nb: \"x: y\"\nc: \"#c\"\nd: \" pad \"\n"},
+			"a: '- x'\nb: 'x: y'\nc: '#c'\nd: ' pad '\n"},
 		{"numericKey", `{"1":"a","true":"b"}`,
-			"\"1\": a\n\"true\": b\n"},
+			"'1': a\n'true': b\n"},
 		{"blockScalar", `{"text":"line one\nline two\n"}`,
 			"text: |\n  line one\n  line two\n"},
 		{"blockScalarStrip", `{"text":"line one\nline two"}`,
@@ -77,13 +77,13 @@ func TestFromJSON(t *testing.T) {
 		{"bignum", `{"num":1e309,"i":123456789012345678901234567890}`,
 			"num: 1e309\ni: 123456789012345678901234567890\n"},
 		{"yaml11Keywords", `{"n":1,"y":2,"off":3}`,
-			"\"n\": 1\n\"y\": 2\n\"off\": 3\n"},
+			"'n': 1\n'y': 2\n'off': 3\n"},
 		{"deepMix", `{"a":[{"b":[1,{"c":"d"}]}]}`,
 			"a:\n  - b:\n      - 1\n      - c: d\n"},
 		{"empty", ``, ""},
 		{"whitespaceOnly", "  \n\t", ""},
 		{"dateLike", `{"d":"2020-01-02","t":"12:30:00"}`,
-			"d: \"2020-01-02\"\nt: \"12:30:00\"\n"},
+			"d: '2020-01-02'\nt: '12:30:00'\n"},
 		{"dashWord", `{"a":"-x","b":"a-b"}`,
 			"a: -x\nb: a-b\n"},
 		// An unnecessary escape in the input does not force a quoted scalar:
@@ -434,6 +434,12 @@ var styleMatrix = []Style{
 	{SpaceMappings: true, SpaceSequences: true, SpaceBefore: true},
 	{Indent: 4, CompactSequence: true, SpaceMappings: true, SpaceBefore: true, SpaceMaxLevel: 2},
 	{Multiline: Quoted, SpaceSequences: true, SpaceBefore: true, SpaceMappingItems: true},
+	// Every entry above leaves Quote zero, so they cover the adaptive default;
+	// these cover the two settings that name a form outright.
+	{Quote: QuoteDouble},
+	{Quote: QuoteSingle},
+	{Multiline: Quoted, Quote: QuoteSingle},
+	{Indent: 4, CompactSequence: true, SpaceMappings: true, Quote: QuoteDouble},
 }
 
 // TestCorpus converts every JSON document in testdata to YAML under each
@@ -487,10 +493,10 @@ func TestUnicodeWhitespace(t *testing.T) {
 	)
 	cases := []struct{ in, want string }{
 		{`"` + nel + `"`, `"\u0085"` + "\n"},
-		{`"` + nbsp + `"`, "\"" + nbsp + "\"\n"},
+		{`"` + nbsp + `"`, "'" + nbsp + "'\n"},
 		{`"a` + nel + `b"`, `"a\u0085b"` + "\n"},
-		{`"` + idsp + `x"`, "\"" + idsp + "x\"\n"},
-		{`{"k":"x` + nbsp + `"}`, "k: \"x" + nbsp + "\"\n"},
+		{`"` + idsp + `x"`, "'" + idsp + "x'\n"},
+		{`{"k":"x` + nbsp + `"}`, "k: 'x" + nbsp + "'\n"},
 		// DEL and the C1 controls are outside YAML's printable set, and LS is
 		// a line break, so all three are escaped even though JSON leaves them
 		// raw
@@ -635,6 +641,9 @@ func TestStyleErrors(t *testing.T) {
 	}
 	if _, err := FromJSONStyle(src, Style{Multiline: 99}); !errors.Is(err, ErrUnknownMultiline) {
 		t.Errorf("unknown multiline: error = %v, want %v", err, ErrUnknownMultiline)
+	}
+	if _, err := FromJSONStyle(src, Style{Quote: 99}); !errors.Is(err, ErrUnknownQuote) {
+		t.Errorf("unknown quote: error = %v, want %v", err, ErrUnknownQuote)
 	}
 	if _, err := FromJSONStyle(src, Style{SpaceMappings: true, SpaceMaxLevel: -1}); !errors.Is(err, ErrNegativeSpaceLevel) {
 		t.Errorf("negative space level: error = %v, want %v", err, ErrNegativeSpaceLevel)
@@ -804,6 +813,164 @@ func TestBlockScalarKeepChomping(t *testing.T) {
 			if !sameJSON(t, []byte(in), back) {
 				t.Errorf("style %+v: round trip mismatch for %s\n got: %s\nyaml: %q", style, in, back, y)
 			}
+		}
+	}
+}
+
+// A string that cannot be written plain is quoted, and Quote picks which
+// quotes. The single-quoted form escapes nothing but a quote of its own, so it
+// is used only where it can hold the string as itself.
+func TestQuoteStyle(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    string
+		style Style
+		want  string
+	}{
+		// single quotes chosen outright
+		{"singleDoubleQuote", `{"k":"say \"hi\""}`, Style{Quote: QuoteSingle},
+			"k: 'say \"hi\"'\n"},
+		{"singleBackslash", `{"k":"C:\\tmp\\x"}`, Style{Quote: QuoteSingle},
+			"k: 'C:\\tmp\\x'\n"},
+		{"singleQuoteDoubled", `{"k":"'q'"}`, Style{Quote: QuoteSingle},
+			"k: '''q'''\n"},
+		{"singleAmbiguous", `{"a":"123","b":"yes","c":"","d":" pad "}`, Style{Quote: QuoteSingle},
+			"a: '123'\nb: 'yes'\nc: ''\nd: ' pad '\n"},
+		{"singleKey", `{"say \"hi\"":1}`, Style{Quote: QuoteSingle},
+			"'say \"hi\"': 1\n"},
+		{"singleQuoteKey", `{"'":1}`, Style{Quote: QuoteSingle},
+			"'''': 1\n"},
+		// whitespace outside ASCII keeps a string out of a plain scalar, but
+		// quotes of either kind carry it
+		{"singleNoBreakSpace", `{"k":"x\u00a0"}`, Style{Quote: QuoteSingle},
+			"k: 'x\u00a0'\n"},
+
+		// what a single-quoted scalar cannot hold falls back to the double form
+		{"singleFallbackTab", `{"k":"a\tb"}`, Style{Quote: QuoteSingle},
+			"k: \"a\\tb\"\n"},
+		{"singleFallbackDelete", `{"k":"a\u007fb"}`, Style{Quote: QuoteSingle},
+			"k: \"a\\u007fb\"\n"},
+		{"singleFallbackC1", `{"k":"a\u0081b"}`, Style{Quote: QuoteSingle},
+			"k: \"a\\u0081b\"\n"},
+		{"singleFallbackLineSeparator", `{"k":"a\u2028b"}`, Style{Quote: QuoteSingle},
+			"k: \"a\\u2028b\"\n"},
+		// Quote is independent of Multiline: a line break rules the single form
+		// out, and is invisible to the block path
+		{"singleFallbackNewline", `{"k":"a\nb"}`, Style{Quote: QuoteSingle, Multiline: Quoted},
+			"k: \"a\\nb\"\n"},
+		{"singleLeavesBlockAlone", `{"k":"a\nb"}`, Style{Quote: QuoteSingle},
+			"k: |-\n  a\n  b\n"},
+		{"singleAfterBlockDeclines", `{"t":"a \nb\n"}`, Style{Quote: QuoteSingle},
+			"t: \"a \\nb\\n\"\n"},
+
+		// QuoteDouble is the JSON spelling throughout
+		{"doubleAmbiguous", `{"a":"123","b":"yes","c":"","d":" pad "}`, Style{Quote: QuoteDouble},
+			"a: \"123\"\nb: \"yes\"\nc: \"\"\nd: \" pad \"\n"},
+		{"doubleBackslash", `{"k":"C:\\tmp"}`, Style{Quote: QuoteDouble},
+			"k: \"C:\\\\tmp\"\n"},
+		{"doubleKey", `{"1":"a"}`, Style{Quote: QuoteDouble},
+			"\"1\": a\n"},
+
+		// adaptive: single where it escapes no more, double where it escapes less
+		{"adaptiveGainQuote", `{"k":"say \"hi\""}`, Style{Quote: QuoteAdaptive},
+			"k: 'say \"hi\"'\n"},
+		{"adaptiveGainBackslash", `{"k":"C:\\x"}`, Style{Quote: QuoteAdaptive},
+			"k: 'C:\\x'\n"},
+		{"adaptiveLossApostrophe", `{"k":"'a'\""}`, Style{Quote: QuoteAdaptive},
+			"k: \"'a'\\\"\"\n"},
+		// a tie goes to single quotes: the two spellings are the same length,
+		// and the single-quoted one carries less punctuation
+		{"adaptiveTie", `{"a":"123","b":"a: b","c":""}`, Style{Quote: QuoteAdaptive},
+			"a: '123'\nb: 'a: b'\nc: ''\n"},
+		{"adaptiveMixed", `{"k":"it's \"x\""}`, Style{Quote: QuoteAdaptive},
+			"k: 'it''s \"x\"'\n"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := FromJSONStyle([]byte(tc.in), tc.style)
+			if err != nil {
+				t.Fatalf("FromJSONStyle(%s, %+v) error = %v", tc.in, tc.style, err)
+			}
+			if string(got) != tc.want {
+				t.Errorf("FromJSONStyle(%s, %+v)\n got: %q\nwant: %q", tc.in, tc.style, got, tc.want)
+			}
+			back, err := tojson.FromYAML(got)
+			if err != nil {
+				t.Fatalf("FromYAML(%q) error = %v", got, err)
+			}
+			if !sameJSON(t, []byte(tc.in), back) {
+				t.Errorf("%s changed the document: %s", tc.name, back)
+			}
+		})
+	}
+}
+
+// The zero value quotes adaptively, so FromJSON itself picks the lighter form.
+func TestQuoteStyleDefault(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{`{"k":"C:\\Users\\x"}`, "k: 'C:\\Users\\x'\n"},
+		{`{"k":"say \"hi\""}`, "k: 'say \"hi\"'\n"},
+		{`{"k":"123"}`, "k: '123'\n"},
+		{`{"k":"'a'\""}`, "k: \"'a'\\\"\"\n"},
+	}
+	for _, tc := range cases {
+		got, err := FromJSON([]byte(tc.in))
+		if err != nil {
+			t.Fatalf("FromJSON(%s) error = %v", tc.in, err)
+		}
+		if string(got) != tc.want {
+			t.Errorf("FromJSON(%s)\n got: %q\nwant: %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestSingleSafe(t *testing.T) {
+	cases := []struct {
+		in   string
+		want bool
+	}{
+		{"", true},
+		{"a", true},
+		{"a'b", true},
+		{"a\"b\\c", true},
+		{"a\u00a0b", true}, // a no-break space is content inside quotes
+		{"a\u3000b", true}, // and so is an ideographic space
+		{"a\tb", false},    // a tab is turned away by choice, not by necessity
+		{"a\nb", false},    // a line break inside the quotes folds to a space
+		{"a\rb", false},
+		{"a\x00b", false},
+		{"a\u007fb", false}, // DEL, outside YAML's printable set
+		{"a\u0085b", false}, // NEL, a C1 control and a line break
+		{"a\u009fb", false},
+		{"a\u2028b", false},
+		{"a\u2029b", false},
+	}
+	for _, tc := range cases {
+		if got := singleSafe([]byte(tc.in)); got != tc.want {
+			t.Errorf("singleSafe(%q) = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestSingleGain(t *testing.T) {
+	cases := []struct {
+		in   string
+		want int
+	}{
+		{"", 0},
+		{"plain text", 0},
+		{"a: b", 0},
+		{`say "hi"`, 2},
+		{`C:\tmp\x`, 2},
+		{"it's", -1},
+		{"'''", -3},
+		{`it's "x"`, 1},
+		{`'"`, 0},
+	}
+	for _, tc := range cases {
+		if got := singleGain([]byte(tc.in)); got != tc.want {
+			t.Errorf("singleGain(%q) = %d, want %d", tc.in, got, tc.want)
 		}
 	}
 }

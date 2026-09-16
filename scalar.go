@@ -56,6 +56,57 @@ func plainSafe(s []byte) bool {
 	return !resolvesToNonString(s)
 }
 
+// singleSafe reports whether s can be written as a YAML single-quoted scalar and
+// read back as the identical string. That form escapes nothing but a quote,
+// which it doubles, and carries every other byte as itself, so it can hold only
+// characters that need no escape at all: the disqualifying set is exactly what
+// writeDoubleQuoted has to escape, which is the C0 controls plus DEL, the C1
+// controls and the two line separators. A newline is among them, so a multi-line
+// string never reaches this form.
+//
+// A tab is turned away by choice rather than by necessity. YAML allows one here,
+// but refusing it keeps the set above exactly the set writeDoubleQuoted escapes,
+// and keeps an invisible character from being spelled as itself. Whitespace
+// outside ASCII is allowed, unlike in a plain or a block scalar: quotes are what
+// save it from being trimmed or folded, so there is nothing to refuse.
+func singleSafe(s []byte) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c < 0x20 || c == 0x7f {
+			return false
+		}
+		if c < utf8.RuneSelf {
+			continue
+		}
+		// The multi-byte cases are the ones yamlEscape matches, by lead byte,
+		// so asking it keeps the two definitions from drifting apart.
+		if _, size := yamlEscape(s[i:]); size > 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// singleGain reports how many bytes the single-quoted spelling of s saves over
+// the double-quoted one, which is the whole of the adaptive rule. Where
+// singleSafe holds, both forms expand by exactly one byte per escape and by
+// nothing else, so the escapes count directly: a quote costs the single form a
+// byte, a double quote or a backslash costs the double form one. That rests on
+// AppendQuote writing the minimal form, with no HTML escaping; its other cases,
+// the C0 controls and invalid UTF-8, cannot reach here.
+func singleGain(s []byte) int {
+	gain := 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '"', '\\':
+			gain++
+		case '\'':
+			gain--
+		}
+	}
+	return gain
+}
+
 // keyword reports whether s, case-folded, is a plain scalar that YAML resolves
 // to a bool, null, or a special float.
 func keyword(s []byte) bool {

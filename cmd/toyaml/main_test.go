@@ -31,6 +31,33 @@ func TestMultilineStyle(t *testing.T) {
 	}
 }
 
+func TestQuoteStyle(t *testing.T) {
+	cases := []struct {
+		in      string
+		want    toyaml.QuoteStyle
+		wantErr bool
+	}{
+		{"adaptive", toyaml.QuoteAdaptive, false},
+		{"ADAPTIVE", toyaml.QuoteAdaptive, false},
+		{"double", toyaml.QuoteDouble, false},
+		{"Double", toyaml.QuoteDouble, false},
+		{"single", toyaml.QuoteSingle, false},
+		{"SINGLE", toyaml.QuoteSingle, false},
+		{"", 0, true},
+		{"literal", 0, true},
+	}
+	for _, tc := range cases {
+		got, err := quoteStyle(tc.in)
+		if (err != nil) != tc.wantErr {
+			t.Errorf("quoteStyle(%q) error = %v, wantErr %v", tc.in, err, tc.wantErr)
+			continue
+		}
+		if err == nil && got != tc.want {
+			t.Errorf("quoteStyle(%q) = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}
+
 func TestInputFormat(t *testing.T) {
 	cases := []struct {
 		flag    string
@@ -88,6 +115,17 @@ func TestConvertJSON(t *testing.T) {
 	// JSON stays strict: YAML input is not accepted in JSON mode
 	if _, err := convert("json", []byte("a: 1\n"), toyaml.Style{}); err == nil {
 		t.Error("convert(json, YAML input) error = nil, want error")
+	}
+}
+
+// Style.Quote reaches the converter like every other flag.
+func TestConvertQuoteStyle(t *testing.T) {
+	got, err := convert("json", []byte(`{"k":"say \"hi\""}`), toyaml.Style{Quote: toyaml.QuoteSingle})
+	if err != nil {
+		t.Fatalf("convert() error = %v", err)
+	}
+	if want := "k: 'say \"hi\"'\n"; string(got) != want {
+		t.Errorf("convert() = %q, want %q", got, want)
 	}
 }
 

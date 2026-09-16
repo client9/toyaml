@@ -9,6 +9,7 @@
 //	cat file.yaml | toyaml -f yaml
 //	toyaml -indent 4 file.json
 //	toyaml -multiline quoted file.json
+//	toyaml -quote double file.json        # or single, or adaptive, the default
 //	toyaml -compact-seq file.json
 //	toyaml -space-map -space-seq -space-before -space-level 1 file.json
 //
@@ -80,6 +81,19 @@ func multilineStyle(name string) (toyaml.MultilineStyle, error) {
 	return 0, fmt.Errorf("unknown multiline style %q, want block or quoted", name)
 }
 
+// quoteStyle maps the -quote flag to the style it names.
+func quoteStyle(name string) (toyaml.QuoteStyle, error) {
+	switch strings.ToLower(name) {
+	case "adaptive":
+		return toyaml.QuoteAdaptive, nil
+	case "double":
+		return toyaml.QuoteDouble, nil
+	case "single":
+		return toyaml.QuoteSingle, nil
+	}
+	return 0, fmt.Errorf("unknown quote style %q, want adaptive, double or single", name)
+}
+
 func readInput(args []string) ([]byte, error) {
 	if len(args) == 0 {
 		return io.ReadAll(os.Stdin)
@@ -91,6 +105,7 @@ func main() {
 	format := flag.String("f", "", "input format: json or yaml (default from file extension, else json)")
 	indent := flag.Int("indent", 0, "spaces per nesting level (default 2)")
 	multiline := flag.String("multiline", "block", "how to write multi-line strings: block or quoted")
+	quote := flag.String("quote", "adaptive", "quotes around a string that cannot be plain: adaptive, double or single")
 	compactSeq := flag.Bool("compact-seq", false, "put a sequence at the indentation of its key")
 	spaceMap := flag.Bool("space-map", false, "blank line between mapping entries next to a multi-line value")
 	spaceSeq := flag.Bool("space-seq", false, "blank line between sequence items next to a multi-line value")
@@ -110,10 +125,14 @@ func main() {
 	}
 
 	if flag.NArg() > 1 {
-		fatalf("usage: toyaml [-f json|yaml] [-indent n] [-multiline block|quoted] [-compact-seq] [-space-map] [-space-seq] [-space-map-items] [-space-before] [-space-level n] [file]")
+		fatalf("usage: toyaml [-f json|yaml] [-indent n] [-multiline block|quoted] [-quote adaptive|double|single] [-compact-seq] [-space-map] [-space-seq] [-space-map-items] [-space-before] [-space-level n] [file]")
 	}
 
 	ml, err := multilineStyle(*multiline)
+	if err != nil {
+		fatalf("%v", err)
+	}
+	q, err := quoteStyle(*quote)
 	if err != nil {
 		fatalf("%v", err)
 	}
@@ -130,6 +149,7 @@ func main() {
 	out, err := convert(inFormat, input, toyaml.Style{
 		Indent:            *indent,
 		Multiline:         ml,
+		Quote:             q,
 		CompactSequence:   *compactSeq,
 		SpaceMappings:     *spaceMap,
 		SpaceSequences:    *spaceSeq,

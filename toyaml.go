@@ -14,9 +14,33 @@ const (
 	Quoted
 )
 
+// QuoteStyle selects the quotes put around a string that cannot be written
+// plain. It applies only where the choice is free: a single-quoted scalar
+// escapes nothing but a quote of its own, so a string holding a line break, or
+// a character YAML has no literal spelling for, is double-quoted whatever the
+// setting.
+type QuoteStyle int
+
+const (
+	// QuoteAdaptive writes whichever form escapes less, and single quotes on a
+	// tie, since the two spellings are then the same length and the lighter one
+	// reads better. So a string carrying a backslash or a double quote comes out
+	// single-quoted, and one carrying an apostrophe double-quoted.
+	QuoteAdaptive QuoteStyle = iota
+
+	// QuoteDouble writes the JSON spelling of the string, which is already
+	// valid inside a YAML double-quoted scalar.
+	QuoteDouble
+
+	// QuoteSingle writes a single-quoted scalar wherever one can hold the string
+	// as itself, doubling any quote in it. Nothing else is escaped, so a
+	// backslash and a double quote come out literal.
+	QuoteSingle
+)
+
 // Style controls the shape of the output. Its zero value is the default: two
-// spaces per level, literal blocks for multi-line strings, and sequences
-// indented under their key.
+// spaces per level, literal blocks for multi-line strings, sequences indented
+// under their key, and quotes chosen to escape least.
 //
 // Style never changes the document. Whatever the settings, reading the output
 // back yields the same data.
@@ -28,6 +52,12 @@ type Style struct {
 
 	// Multiline selects how a string containing newlines is written.
 	Multiline MultilineStyle
+
+	// Quote selects the quotes put around a string that is neither plain nor a
+	// block scalar. It is independent of Multiline: a single-quoted scalar
+	// written across lines folds its breaks into spaces, so a string with a
+	// newline in it is double-quoted even under Multiline == Quoted.
+	Quote QuoteStyle
 
 	// CompactSequence puts a sequence at the indentation of the mapping key
 	// that introduces it, rather than one level deeper:

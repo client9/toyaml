@@ -22,6 +22,8 @@ func FuzzRoundTrip(f *testing.F) {
 		`{"nested":{"deep":{"deeper":[{"a":[]}]}}}`,
 		`{"n":1e309,"big":123456789012345678901234567890}`,
 		`{"pad":"  x\ny\n","tab":"a\tb"}`,
+		`{"path":"C:\\Users\\x","json":"{\"a\":1}"}`,
+		`{"q":"it's \"quoted\"","apo":"'''"}`,
 	} {
 		f.Add(seed)
 	}
