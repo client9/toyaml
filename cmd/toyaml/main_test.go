@@ -91,6 +91,7 @@ func TestCheckSpacing(t *testing.T) {
 		name     string
 		spaceMap bool
 		seq      toyaml.SequenceSpacing
+		afterKey bool
 		before   bool
 		level    int
 		wantErr  string
@@ -98,10 +99,17 @@ func TestCheckSpacing(t *testing.T) {
 		{name: "nothing set"},
 		{name: "mappings only", spaceMap: true},
 		{name: "sequences only", seq: toyaml.SpaceSeqMultiline},
+		{name: "after key only", afterKey: true},
 		{name: "before with mappings", spaceMap: true, before: true},
 		{name: "before with sequences", seq: toyaml.SpaceSeqMappings, before: true},
 		{name: "level with mappings", spaceMap: true, level: 2},
+		// -space-level bounds -space-after-key too, so it has work to do here
+		{name: "level with after key", afterKey: true, level: 2},
 		{name: "before alone", before: true,
+			wantErr: "-space-before needs -space-map or -space-seq"},
+		// -space-before widens the gap between entries; -space-after-key is a
+		// different gap and leaves it with nothing to widen
+		{name: "before with after key", afterKey: true, before: true,
 			wantErr: "-space-before needs -space-map or -space-seq"},
 		{name: "level alone", level: 2,
 			wantErr: "-space-level needs -space-map or -space-seq"},
@@ -111,7 +119,7 @@ func TestCheckSpacing(t *testing.T) {
 		{name: "negative level alone", level: -1},
 	}
 	for _, tc := range cases {
-		err := checkSpacing(tc.spaceMap, tc.seq, tc.before, tc.level)
+		err := checkSpacing(tc.spaceMap, tc.seq, tc.afterKey, tc.before, tc.level)
 		switch {
 		case tc.wantErr == "" && err != nil:
 			t.Errorf("%s: checkSpacing() = %v, want nil", tc.name, err)

@@ -119,6 +119,24 @@ type Style struct {
 	// which items count as worth setting off.
 	SpaceSequences SequenceSpacing
 
+	// SpaceAfterKey puts a blank line between a mapping key and a nested
+	// mapping or sequence it introduces, setting the value off from the key
+	// that names it:
+	//
+	//	children:
+	//
+	//	  - name: Jane
+	//	    sex: female
+	//
+	// It is its own axis, not a qualifier on SpaceMappings or SpaceSequences:
+	// those space one entry from the next, while this spaces the inside of a
+	// single entry. SpaceMaxLevel bounds it like the rest.
+	//
+	// It does not apply to a value written on the key's own line, which has no
+	// line to open, nor to a block scalar, where a reader would take the blank
+	// line as the string's first line and the document would not survive.
+	SpaceAfterKey bool
+
 	// SpaceBefore also puts a blank line ahead of an entry that spans more
 	// than one line, so it is set off from the entry before it as well as the
 	// one after. It applies wherever SpaceMappings or SpaceSequences does.

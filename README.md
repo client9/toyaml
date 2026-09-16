@@ -68,6 +68,7 @@ same data.
 | `CompactSequence` | put a sequence at the indentation of its key | false |
 | `SpaceMappings` | blank line between mapping entries next to a multi-line value | false |
 | `SpaceSequences` | `SpaceSeqNone`, `SpaceSeqMultiline`, or `SpaceSeqMappings` to count one-line mappings too | `SpaceSeqNone` |
+| `SpaceAfterKey` | blank line between a mapping key and a nested mapping or sequence | false |
 | `SpaceBefore` | also put a blank line before a multi-line value, not only after | false |
 | `SpaceMaxLevel` | space only containers nested at most this deep | 0 (every level) |
 
@@ -124,6 +125,7 @@ toyaml -multiline quoted file.json
 toyaml -compact-seq file.json
 toyaml -space-map -space-seq multiline -space-before file.json
 toyaml -space-seq mappings file.json  # spaces one-line mappings too
+toyaml -space-after-key file.json
 ```
 
 To convert something that is not JSON, convert it to JSON first:

@@ -231,8 +231,15 @@ type spacer struct {
 	sep   int  // offset of the line break ahead of the current entry, -1 for the first
 }
 
+// withinSpaceLevel reports whether the container being written now is shallow
+// enough for SpaceMaxLevel to allow a blank line inside it. The top-level
+// container is level 1.
+func (e *encoder) withinSpaceLevel() bool {
+	return e.style.SpaceMaxLevel == 0 || e.depth <= e.style.SpaceMaxLevel
+}
+
 func (e *encoder) newSpacer(kind bool) spacer {
-	on := kind && (e.style.SpaceMaxLevel == 0 || e.depth <= e.style.SpaceMaxLevel)
+	on := kind && e.withinSpaceLevel()
 	return spacer{on: on, sep: -1}
 }
 
@@ -333,6 +340,12 @@ func (e *encoder) emitNested(parent int) error {
 		child = parent
 	}
 	e.out = append(e.out, '\n')
+	// Only a nested container reaches here: a scalar, a block scalar among
+	// them, went out on the key's own line above, which is what keeps a blank
+	// line from being read as a block string's first line.
+	if e.style.SpaceAfterKey && e.withinSpaceLevel() {
+		e.out = append(e.out, '\n')
+	}
 	e.writeIndent(child)
 	return e.emitContainer(k, child)
 }

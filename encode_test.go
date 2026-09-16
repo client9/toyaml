@@ -440,6 +440,8 @@ var styleMatrix = []Style{
 	{Quote: QuoteSingle},
 	{Multiline: Quoted, Quote: QuoteSingle},
 	{Indent: 4, CompactSequence: true, SpaceMappings: true, Quote: QuoteDouble},
+	{SpaceAfterKey: true},
+	{SpaceAfterKey: true, SpaceMappings: true, SpaceSequences: SpaceSeqMappings, SpaceBefore: true},
 }
 
 // TestCorpus converts every JSON document in testdata to YAML under each
@@ -691,6 +693,22 @@ func TestStyleSpacing(t *testing.T) {
 			"- a\n- k: 1\n\n- {}\n- b\n"},
 		{"mapping items before", `["a",{"k":1},{},"b"]`, Style{SpaceSequences: SpaceSeqMappings, SpaceBefore: true},
 			"- a\n\n- k: 1\n\n- {}\n- b\n"},
+		// SpaceAfterKey opens a nested value rather than separating siblings
+		{"after key", mapping, Style{SpaceAfterKey: true},
+			"a: 1\nb: 2\nlist:\n\n  - x\n  - z\nobj:\n\n  k:\n\n    m: 1\n  p: 2\nc: 3\ne: []\nf: 4\n"},
+		{"after key top level", mapping, Style{SpaceAfterKey: true, SpaceMaxLevel: 1},
+			"a: 1\nb: 2\nlist:\n\n  - x\n  - z\nobj:\n\n  k:\n    m: 1\n  p: 2\nc: 3\ne: []\nf: 4\n"},
+		{"after key with mappings", mapping, Style{SpaceAfterKey: true, SpaceMappings: true},
+			"a: 1\nb: 2\nlist:\n\n  - x\n  - z\n\nobj:\n\n  k:\n\n    m: 1\n\n  p: 2\n\nc: 3\ne: []\nf: 4\n"},
+		{"after key compact", mapping, Style{SpaceAfterKey: true, CompactSequence: true},
+			"a: 1\nb: 2\nlist:\n\n- x\n- z\nobj:\n\n  k:\n\n    m: 1\n  p: 2\nc: 3\ne: []\nf: 4\n"},
+		// a block scalar keeps its key's line: a blank line there would come
+		// back as the string's first line
+		{"after key leaves block", `{"t":"a\nb\n","u":{"v":1}}`, Style{SpaceAfterKey: true},
+			"t: |\n  a\n  b\nu:\n\n  v: 1\n"},
+		// a sequence item has no key, so there is nothing to open
+		{"after key in sequence", seq, Style{SpaceAfterKey: true},
+			"- a: 1\n  b: 2\n- s\n-\n  - 1\n  - 2\n- t\n"},
 		{"block string", `{"t":"a\nb\n","u":1}`, Style{SpaceMappings: true},
 			"t: |\n  a\n  b\n\nu: 1\n"},
 		{"quoted string", `{"t":"a\nb\n","u":1}`, Style{SpaceMappings: true, Multiline: Quoted},
